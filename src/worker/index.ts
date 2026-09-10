@@ -172,8 +172,17 @@ async function route(req: Request, env: Env): Promise<Response> {
         "SELECT id, system_id, label, rank, ordinal, colour FROM grades ORDER BY system_id, ordinal",
       ).all(),
     ]);
+    // A cookie outlives the row it names, so the id in it is a claim, not a
+    // fact. Every write path already checks it against `members` and answers
+    // 401 so the client goes back to the name picker — but bootstrap is where
+    // the client *learns* who it is, and reporting an id that no longer exists
+    // told it it was signed in as a member the board has never heard of. The
+    // members list is right here, so confirming costs no extra query.
+    const claimed = readMemberId(req);
+    const me = members.results.some((m) => m.id === claimed) ? claimed : null;
+
     return json({
-      me: readMemberId(req),
+      me,
       members: members.results,
       systems: systems.results,
       chains: chains.results,

@@ -99,6 +99,46 @@ describe("GET /api/bootstrap", () => {
     const { status } = await readJson(await harness().call("/api/bootstrap"));
     assert.equal(status, 200);
   });
+
+  test("me is null when the cookie names a member who no longer exists", async () => {
+    const { body } = await readJson(await harness().call("/api/bootstrap", { as: 404 }));
+    assert.equal(body.me, null);
+  });
+
+  test("me is null once the member the cookie names is deleted", async () => {
+    const t = fixture();
+    const h = harness(t);
+    assert.equal((await readJson(await h.call("/api/bootstrap", { as: 3 }))).body.me, 3);
+
+    t.members = t.members.filter((m) => m.id !== 3);
+    assert.equal((await readJson(await h.call("/api/bootstrap", { as: 3 }))).body.me, null);
+  });
+
+  test("confirming me costs no extra query", async () => {
+    const h = harness();
+    await h.call("/api/bootstrap", { as: 1 });
+    assert.equal(h.db.log.length, 5);
+    assert.ok(!h.db.log.some((q) => q.sql === "SELECT 1 FROM members WHERE id = ?"));
+  });
+
+  test("what bootstrap says about me matches what the write paths will accept", async () => {
+    for (const as of [1, 404]) {
+      const h = harness();
+      const { body } = await readJson(await h.call("/api/bootstrap", { as }));
+      const { status } = await readJson(
+        await h.call("/api/sends", {
+          method: "POST",
+          as,
+          body: JSON.stringify({ gym_id: 100, grade_id: 200, sent_on: "2026-09-01" }),
+        }),
+      );
+      assert.equal(
+        body.me === null,
+        status === 401,
+        `bootstrap said me=${body.me} but POST answered ${status}`,
+      );
+    }
+  });
 });
 
 describe("cookie parsing", () => {
