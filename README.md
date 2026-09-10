@@ -39,6 +39,31 @@ file before the group starts using the app for real.
 `npm run db:reset` is safe to re-run: the seed upserts, so retuning a grade
 rank or renaming a member does not touch anyone's logged sends.
 
+## Tests
+
+```sh
+npm test            # every API route, no database needed
+npm run test:coverage
+```
+
+The tests cover `src/worker/index.ts` — the routing, every validation branch
+and the ownership rule — and use nothing that is not already installed:
+Node's own `node:test` runner, its built-in TypeScript support, and its
+built-in coverage reporter. There is no test framework to install and no
+`devDependency` for it.
+
+`tests/support/fake-d1.ts` is an in-memory stand-in for the D1 binding. It is
+not a SQL engine: it recognises exactly the statements the Worker issues and
+answers them from arrays, and *throws* on anything it does not recognise, so a
+new query shows up as a loud harness failure rather than a silently empty
+result. That keeps the tests fast and hermetic. What it deliberately does not
+check is whether the SQL is valid — `npm run db:reset` against real D1 is
+still the only thing that proves that.
+
+`tests/` is in neither tsconfig: the Worker project sets `types: []`, so there
+are no ambient `node:test` declarations to typecheck against, and adding them
+would mean a dependency. `npm run typecheck` therefore covers `src/` only.
+
 ## Deploying to Cloudflare
 
 ```sh
@@ -141,6 +166,8 @@ src/client/style.css
 src/worker/index.ts   the API; the rule lives in `assertOwner`
 migrations/           schema (wrangler-tracked)
 seed/seed.sql         chains, branches, ladders — the part you'll edit
+tests/routes.test.ts  the API, route by route
+tests/support/        the in-memory D1 stand-in the tests run against
 ```
 
 Client and Worker have incompatible globals (DOM vs the Workers runtime), so
