@@ -42,12 +42,20 @@ rank or renaming a member does not touch anyone's logged sends.
 ## Deploying to Cloudflare
 
 ```sh
+npx wrangler login             # or: npm run wrangler -- login
 npm run db:create              # prints a database_id
-# paste that id into wrangler.jsonc
+# paste that id into wrangler.jsonc, then regenerate types
+npm run types
 npm run db:migrate:remote
 npm run db:seed:remote
 npm run deploy
 ```
+
+`npm run deploy` builds first, then calls `wrangler deploy`. The Vite plugin
+writes its own `dist/climb_log/wrangler.json` at build time and Wrangler
+redirects to it automatically — so deploy always ships the built Worker plus
+the `dist/client` assets, not the TypeScript source. Check it without
+deploying with `npm run wrangler -- deploy --dry-run`.
 
 ## Where the grade data came from
 
@@ -109,6 +117,7 @@ be real, `readMemberId` in `src/worker/index.ts` is the single seam to replace.
 
 ```
 index.html            client entry
+worker-configuration.d.ts  generated Env + runtime types (committed)
 src/client/main.ts    the whole UI — four tabs, no framework
 src/client/style.css
 src/worker/index.ts   the API; the rule lives in `assertOwner`
@@ -116,8 +125,14 @@ migrations/           schema (wrangler-tracked)
 seed/seed.sql         chains, branches, ladders — the part you'll edit
 ```
 
-Client and Worker have incompatible globals (DOM vs `@cloudflare/workers-types`),
-so each half has its own tsconfig. `npm run typecheck` builds both.
+Client and Worker have incompatible globals (DOM vs the Workers runtime), so
+each half has its own tsconfig. `npm run typecheck` builds both.
+
+Worker types are generated, not hand-written: `worker-configuration.d.ts` comes
+from `npm run types`, which reads the bindings out of `wrangler.jsonc`. It is
+committed on purpose so a fresh clone typechecks without running Wrangler.
+**Re-run `npm run types` after changing any binding** — `npm run types --
+--check` tells you whether it is stale.
 
 ## Machine notes
 
