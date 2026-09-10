@@ -127,10 +127,15 @@ function localToday(): string {
  * can't have sent a climb you haven't climbed yet — but "future" is measured
  * against `localToday()`, because a session that runs past midnight is
  * logged on a date UTC has not reached yet.
+ *
+ * The value has to *be* a string, for the same reason `positiveInt` refuses
+ * `[3]`: `String()` would flatten `["2026-09-01"]` into a date that passes.
  */
 function dateField(src: Record<string, unknown>, key: string): string {
-  const v = String(src[key] ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new HttpError(400, `"${key}" must look like 2026-09-10.`);
+  const v = src[key];
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    throw new HttpError(400, `"${key}" must look like 2026-09-10.`);
+  }
   const d = new Date(`${v}T00:00:00Z`);
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) {
     throw new HttpError(400, `"${key}" isn't a real date.`);
@@ -141,10 +146,27 @@ function dateField(src: Record<string, unknown>, key: string): string {
   return v;
 }
 
+/**
+ * Free text, or nothing. Absent, null and blank all mean nothing, and NULL is
+ * how that is stored — an empty string would be a second way to say the same
+ * thing.
+ *
+ * Anything that is not text is a 400 rather than something `String()` turns
+ * into a note: `{ note: { why: "flash" } }` used to be stored, verbatim, as
+ * the characters `[object Object]`.
+ *
+ * The 280 cap counts code points, not UTF-16 units, so it cannot slice an
+ * emoji in half and leave a lone surrogate in the column. For a note with no
+ * astral characters — every note anyone will actually write — that is the same
+ * 280 the client's `maxlength` enforces.
+ */
+const NOTE_MAX = 280;
+
 function noteField(src: Record<string, unknown>): string | null {
   const v = src.note;
-  if (v === undefined || v === null || v === "") return null;
-  const s = String(v).trim().slice(0, 280);
+  if (v === undefined || v === null) return null;
+  if (typeof v !== "string") throw new HttpError(400, `"note" must be text.`);
+  const s = [...v.trim()].slice(0, NOTE_MAX).join("");
   return s === "" ? null : s;
 }
 

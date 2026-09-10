@@ -346,6 +346,14 @@ describe("POST /api/sends — validation", () => {
     }
   });
 
+  test("sent_on must be a string, not something that stringifies into one", async () => {
+    for (const sent_on of [["2026-09-01"], { toString: "2026-09-01" }, 20260901, true]) {
+      const { status, body } = await bad({ sent_on });
+      assert.equal(status, 400, `accepted ${JSON.stringify(sent_on)}`);
+      assert.equal(body.error, '"sent_on" must look like 2026-09-10.');
+    }
+  });
+
   test("a date-shaped impossibility is rejected rather than rolled forward", async () => {
     for (const sent_on of ["2026-02-31", "2026-13-01", "2026-00-10", "2026-09-31", "2025-02-29"]) {
       const { status, body } = await bad({ sent_on });
@@ -466,6 +474,42 @@ describe("POST /api/sends — the note", () => {
   test("a long note is capped at 280 characters", async () => {
     const note = await noteFor("x".repeat(500));
     assert.equal(note, "x".repeat(280));
+  });
+
+  test("a note that is not text is a 400, not a stringified object", async () => {
+    for (const note of [{ why: "flash" }, ["crimpy"], 5, true]) {
+      const h = harness();
+      const { status, body } = await readJson(
+        await h.call("/api/sends", post("/api/sends", { ...validSend(), note }, 1)),
+      );
+      assert.equal(status, 400, `accepted ${JSON.stringify(note)}`);
+      assert.equal(body.error, '"note" must be text.');
+      assert.equal(h.db.tables.sends.length, 2);
+    }
+  });
+
+  test("the cap does not slice an emoji in half", async () => {
+    const note = (await noteFor("x".repeat(279) + "🧗"))!;
+    assert.equal(note, "x".repeat(279) + "🧗");
+    // Nothing left dangling: a lone surrogate would round-trip as U+FFFD.
+    assert.equal(note, [...note].join(""));
+    assert.ok(!/[\uD800-\uDFFF]/.test(note.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, "")));
+  });
+
+  test("the cap counts code points, so an all-emoji note keeps 280 of them", async () => {
+    const note = (await noteFor("🧗".repeat(400)))!;
+    assert.equal([...note].length, 280);
+    assert.equal(note, "🧗".repeat(280));
+  });
+
+  test("an over-long note is still stored, just shorter — not rejected", async () => {
+    const { status } = await readJson(
+      await harness().call(
+        "/api/sends",
+        post("/api/sends", { ...validSend(), note: "x".repeat(9000) }, 1),
+      ),
+    );
+    assert.equal(status, 201);
   });
 });
 
