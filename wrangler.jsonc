@@ -16,7 +16,8 @@
     {
       "binding": "DB",
       "database_name": "climb-log",
-      "database_id": "68f0ed1e-2805-4fcd-ad24-e18509a5ffa5",
+      // Replace with the id printed by `npm run db:create` before deploying.
+      "database_id": "REPLACE_ME_AFTER_db:create",
       "migrations_dir": "migrations"
     }
   ]

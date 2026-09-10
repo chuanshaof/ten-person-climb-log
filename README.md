@@ -1,7 +1,5 @@
 # Climb Log
 
-**Live:** <https://climb-log.ten-person-climb-log.workers.dev>
-
 A ten-person bouldering tracker for a group that climbs across Singapore gyms
 with incompatible grading systems.
 
@@ -42,8 +40,6 @@ file before the group starts using the app for real.
 rank or renaming a member does not touch anyone's logged sends.
 
 ## Deploying to Cloudflare
-
-Already done once; these are the steps if you ever start from a clean account.
 
 ```sh
 npm run wrangler -- login      # opens a browser to authorise
