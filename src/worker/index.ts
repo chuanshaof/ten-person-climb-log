@@ -71,9 +71,23 @@ function intField(src: Record<string, unknown>, key: string): number {
   return n;
 }
 
+/**
+ * A calendar date, `YYYY-MM-DD`. The shape check alone would wave through
+ * `2026-99-99` and `2026-02-31`, so we round-trip through `Date` — the
+ * comparison is what catches the 31st of February, which `Date` would
+ * otherwise roll forward to 2 March. Future dates are rejected too: you
+ * can't have sent a climb you haven't climbed yet.
+ */
 function dateField(src: Record<string, unknown>, key: string): string {
   const v = String(src[key] ?? "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new HttpError(400, `"${key}" must look like 2026-09-10.`);
+  const d = new Date(`${v}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) {
+    throw new HttpError(400, `"${key}" isn't a real date.`);
+  }
+  if (v > new Date().toISOString().slice(0, 10)) {
+    throw new HttpError(400, "You can't log a send in the future.");
+  }
   return v;
 }
 
