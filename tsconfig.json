@@ -1,0 +1,6 @@
+{
+  // The client and the Worker have incompatible globals (DOM vs workers-types),
+  // so each half gets its own project.
+  "files": [],
+  "references": [{ "path": "./tsconfig.client.json" }, { "path": "./tsconfig.worker.json" }]
+}

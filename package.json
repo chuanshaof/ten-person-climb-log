@@ -1,0 +1,27 @@
+{
+  "name": "ten-person-climb-log",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js dev",
+    "build": "node node_modules/vite/bin/vite.js build",
+    "preview": "node node_modules/vite/bin/vite.js preview",
+    "typecheck": "node node_modules/typescript/bin/tsc -b",
+    "wrangler": "node node_modules/wrangler/bin/wrangler.js",
+    "db:create": "node node_modules/wrangler/bin/wrangler.js d1 create climb-log",
+    "db:migrate": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply climb-log --local",
+    "db:migrate:remote": "node node_modules/wrangler/bin/wrangler.js d1 migrations apply climb-log --remote",
+    "db:seed": "node node_modules/wrangler/bin/wrangler.js d1 execute climb-log --local --file=./seed/seed.sql",
+    "db:seed:remote": "node node_modules/wrangler/bin/wrangler.js d1 execute climb-log --remote --file=./seed/seed.sql",
+    "db:reset": "npm run db:migrate && npm run db:seed",
+    "deploy": "npm run build && node node_modules/wrangler/bin/wrangler.js deploy",
+    "db:demo": "node node_modules/wrangler/bin/wrangler.js d1 execute climb-log --local --file=./seed/demo.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.13.11",
+    "@cloudflare/workers-types": "^5.20260908.1",
+    "typescript": "^5.9.2",
+    "vite": "^6.3.5",
+    "wrangler": "^4.30.0"
+  }
+}

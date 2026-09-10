@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "climb-log",
+  "main": "./src/worker/index.ts",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "climb-log",
+      // Replace with the id printed by `npm run db:create` before deploying.
+      "database_id": "REPLACE_ME_AFTER_db:create",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

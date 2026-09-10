@@ -1,0 +1,271 @@
+:root {
+  color-scheme: light dark;
+
+  --bg: #faf8f5;
+  --panel: #ffffff;
+  --line: #e9e4db;
+  --line-soft: #f2eee7;
+  --ink: #1b1917;
+  --muted: #6f6759;
+  --faint: #9b9284;
+  --accent: #c05621;
+  --accent-soft: #fdf0e7;
+  --track: #efeae1;
+
+  --radius: 12px;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Board geometry, shared by the axis and every row so they line up. */
+  --col-who: 150px;
+  --col-best: 62px;
+  --gap: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15140f;
+    --panel: #1e1c16;
+    --line: #322f27;
+    --line-soft: #262319;
+    --ink: #f0ede6;
+    --muted: #a49d8f;
+    --faint: #7c7466;
+    --accent: #ec8b4c;
+    --accent-soft: #2b2018;
+    --track: #2a2721;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { max-width: 900px; margin: 0 auto; padding: 28px 18px 96px; }
+#app.loading { color: var(--muted); padding-top: 72px; text-align: center; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ── header ─────────────────────────────────────────────────────────── */
+header.top {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  align-items: flex-end; justify-content: space-between;
+  padding-bottom: 14px; margin-bottom: 6px;
+}
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+h1 small {
+  display: block; margin-top: 3px;
+  font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0;
+}
+.whoami { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
+.whoami strong { font-weight: 600; }
+
+.stats {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  padding: 0 0 16px; margin: 0 0 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px; color: var(--muted);
+}
+.stats b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ── controls ───────────────────────────────────────────────────────── */
+button, select, input {
+  font: inherit; color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+button { cursor: pointer; transition: border-color .12s, background .12s; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.primary:hover { filter: brightness(1.08); }
+button.link {
+  border: 0; background: none; padding: 2px 4px;
+  color: var(--muted); text-decoration: underline; text-underline-offset: 2px;
+}
+button.link:hover { color: var(--accent); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+nav.tabs { display: flex; gap: 4px; margin-bottom: 20px; flex-wrap: wrap; }
+nav.tabs button { border-radius: 999px; padding: 6px 14px; color: var(--muted); border-color: transparent; }
+nav.tabs button:hover { background: var(--line-soft); }
+nav.tabs button[aria-current="true"] {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+
+/* ── panels ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 15px 17px; margin-bottom: 12px;
+}
+.card h3 { margin: 0; font-size: 15px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sub { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+
+.empty {
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  padding: 38px 24px; text-align: center; color: var(--muted);
+}
+.empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 6px; }
+.empty p { margin: 0; font-size: 13.5px; max-width: 42ch; margin-inline: auto; }
+
+/* ── the board: one shared axis, everyone positioned on it ──────────── */
+.board { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+
+.axis, .board-row {
+  display: grid;
+  grid-template-columns: var(--col-who) 1fr var(--col-best);
+  grid-template-areas: "who track best" ".  chips chips";
+  gap: 7px var(--gap);
+  align-items: center;
+  padding: 11px 17px;
+}
+.axis {
+  grid-template-areas: "who track best";
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.axis .ticks {
+  grid-area: track;
+  display: flex; justify-content: space-between;
+  font: 500 10.5px/1 var(--mono); color: var(--faint); letter-spacing: .02em;
+}
+.axis .caption { grid-area: who; font-size: 11.5px; color: var(--faint); }
+.axis .median-note { grid-area: best; font-size: 10.5px; color: var(--faint); text-align: right; }
+
+.board-row { border-bottom: 1px solid var(--line-soft); }
+.board-row:last-child { border-bottom: 0; }
+.board-row .who {
+  grid-area: who; font-weight: 600; font-size: 14px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* The track is the point of the whole app: every gym's grades land on it. */
+.track {
+  grid-area: track; position: relative;
+  height: 9px; border-radius: 999px; background: var(--track);
+  /* A gridline every 2 V-grades, matching the tick labels above. */
+  background-image: repeating-linear-gradient(
+    to right, transparent 0 calc(20% - 1px), rgba(128, 128, 128, .22) calc(20% - 1px) 20%
+  );
+}
+.track .fill {
+  position: absolute; inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, transparent), var(--accent));
+  min-width: 4px;
+}
+.track .fill.est {
+  /* An estimated best gets a hatched cap, so it never reads as measured. */
+  background-image: repeating-linear-gradient(
+    45deg, rgba(255,255,255,.32) 0 3px, transparent 3px 6px
+  );
+}
+/* Where the group's median best sits — everyone sees the same line. */
+.track .median {
+  position: absolute; top: -4px; bottom: -4px; width: 2px;
+  background: var(--ink); opacity: .28; border-radius: 2px;
+}
+
+.board-row .best {
+  grid-area: best; text-align: right;
+  font: 600 13px/1 var(--mono); color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.board-row .chips { grid-area: chips; }
+
+/* ── chips ──────────────────────────────────────────────────────────── */
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px 2px 5px; font-size: 12px; background: var(--bg);
+  white-space: nowrap;
+}
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(128,128,128,.4); flex: none; }
+.chip .where { color: var(--muted); }
+.chip .v { font: 11px/1 var(--mono); color: var(--faint); }
+.chip.est { border-style: dashed; border-color: var(--faint); }
+
+/* ── list rows ──────────────────────────────────────────────────────── */
+.bucket {
+  font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--faint);
+  margin: 18px 2px 7px;
+}
+.bucket:first-child { margin-top: 2px; }
+
+.row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px;
+}
+.row:last-child { border-bottom: 0; }
+.row .when { font: 12px/1 var(--mono); color: var(--faint); min-width: 52px; }
+.row .who { font-weight: 600; min-width: 92px; }
+.row .rank { font: 12px/1 var(--mono); color: var(--muted); }
+.row .rank.est { border-bottom: 1px dashed var(--faint); }
+.row .where { color: var(--muted); font-size: 13px; }
+.row .note { color: var(--muted); font-style: italic; font-size: 13px; flex-basis: 100%; margin-left: 56px; }
+.row .actions { margin-left: auto; display: flex; gap: 2px; }
+
+/* ── ladder disclosure ──────────────────────────────────────────────── */
+details.ladder { margin-top: 10px; }
+details.ladder summary {
+  cursor: pointer; font-size: 12.5px; color: var(--muted);
+  list-style: none; display: inline-flex; align-items: center; gap: 5px;
+}
+details.ladder summary::-webkit-details-marker { display: none; }
+details.ladder summary::before { content: "▸"; font-size: 10px; color: var(--faint); }
+details.ladder[open] summary::before { content: "▾"; }
+details.ladder summary:hover { color: var(--accent); }
+details.ladder .chips { margin-top: 9px; }
+details.ladder .src { margin: 8px 0 0; font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+
+.branches { margin: 3px 0 0; }
+
+/* ── form ───────────────────────────────────────────────────────────── */
+form.log { display: grid; gap: 11px; grid-template-columns: 1fr 1fr; }
+form.log h3 { grid-column: 1 / -1; }
+form.log label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+form.log label select, form.log label input { color: var(--ink); }
+form.log .wide { grid-column: 1 / -1; }
+form.log .actions { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+optgroup { font-style: normal; font-weight: 600; }
+
+/* ── notices ────────────────────────────────────────────────────────── */
+.legend {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; color: var(--muted); margin: 14px 2px 0; line-height: 1.6;
+}
+.legend .chip { font-size: 11px; padding: 1px 8px 1px 4px; align-self: center; }
+.legend .chip .dot { background: var(--faint); }
+.legend code, .warn code { font: 11.5px var(--mono); }
+.warn { color: var(--muted); margin: 0; font-size: 12.5px; line-height: 1.5; }
+
+.error { color: #b03a26; font-size: 13px; }
+@media (prefers-color-scheme: dark) { .error { color: #ff9880; } }
+
+/* ── narrow ─────────────────────────────────────────────────────────── */
+@media (max-width: 620px) {
+  #app { padding: 22px 14px 80px; }
+  :root { --col-who: 1fr; --col-best: auto; }
+  .axis, .board-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "who best" "track track" "chips chips";
+    padding: 12px 14px;
+  }
+  .axis { grid-template-areas: "who best" "track track"; }
+  .axis .ticks { grid-area: track; }
+  .board-row .best { text-align: right; }
+  form.log { grid-template-columns: 1fr; }
+  .row .note { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
