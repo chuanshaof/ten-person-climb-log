@@ -32,13 +32,25 @@ function readMemberId(req: Request): number | null {
   const raw = req.headers.get("cookie") ?? "";
   const hit = raw.split(";").map((c) => c.trim()).find((c) => c.startsWith(`${COOKIE}=`));
   if (!hit) return null;
-  const id = Number(hit.slice(COOKIE.length + 1));
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return positiveInt(hit.slice(COOKIE.length + 1));
 }
 
-function requireMe(req: Request): number {
+async function memberExists(env: Env, id: number): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT 1 FROM members WHERE id = ?").bind(id).first();
+  return row !== null;
+}
+
+/**
+ * Write paths need a member that actually exists: the cookie lasts a year, so it
+ * can outlive the row it names (and nothing stops someone typing a number into
+ * it). One indexed lookup turns what would otherwise be a foreign-key 500 into
+ * a 401, which sends the client back to the name picker.
+ */
+async function requireMe(req: Request, env: Env): Promise<number> {
   const id = readMemberId(req);
-  if (id === null) throw new HttpError(401, "Pick who you are first.");
+  if (id === null || !(await memberExists(env, id))) {
+    throw new HttpError(401, "Pick who you are first.");
+  }
   return id;
 }
 
@@ -65,9 +77,23 @@ async function body(req: Request): Promise<Record<string, unknown>> {
   throw new HttpError(400, "Expected a JSON object.");
 }
 
+/**
+ * Positive integer, or null. Deliberately narrow: only a real integer or a
+ * string of plain digits. `Number()` on its own would happily turn `true`,
+ * `[3]`, `" 3 "` and `"3.0"` into an id.
+ */
+function positiveInt(v: unknown): number | null {
+  if (typeof v === "number") return Number.isInteger(v) && v > 0 ? v : null;
+  if (typeof v === "string" && /^\d+$/.test(v)) {
+    const n = Number(v);
+    return Number.isSafeInteger(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
 function intField(src: Record<string, unknown>, key: string): number {
-  const n = Number(src[key]);
-  if (!Number.isInteger(n) || n <= 0) throw new HttpError(400, `Missing or invalid "${key}".`);
+  const n = positiveInt(src[key]);
+  if (n === null) throw new HttpError(400, `Missing or invalid "${key}".`);
   return n;
 }
 
@@ -145,8 +171,7 @@ async function route(req: Request, env: Env): Promise<Response> {
   if (path === "/api/session" && method === "POST") {
     const b = await body(req);
     const id = intField(b, "member_id");
-    const exists = await env.DB.prepare("SELECT 1 FROM members WHERE id = ?").bind(id).first();
-    if (!exists) throw new HttpError(404, "Not one of the ten.");
+    if (!(await memberExists(env, id))) throw new HttpError(404, "Not one of the ten.");
     return json(
       { me: id },
       {
@@ -171,7 +196,7 @@ async function route(req: Request, env: Env): Promise<Response> {
   }
 
   if (path === "/api/sends" && method === "POST") {
-    const me = requireMe(req);
+    const me = await requireMe(req, env);
     const b = await body(req);
     const gymId = intField(b, "gym_id");
     const gradeId = intField(b, "grade_id");
@@ -188,7 +213,7 @@ async function route(req: Request, env: Env): Promise<Response> {
   const one = path.match(/^\/api\/sends\/(\d+)$/);
   if (one) {
     const id = Number(one[1]);
-    const me = requireMe(req);
+    const me = await requireMe(req, env);
     await assertOwner(env, id, me);
 
     if (method === "DELETE") {
