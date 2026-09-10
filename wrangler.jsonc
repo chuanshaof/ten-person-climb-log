@@ -4,14 +4,19 @@
   "main": "./src/worker/index.ts",
   "compatibility_date": "2026-09-10",
   "assets": {
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Only /api/* invokes the Worker. Everything else is served straight from
+    // the asset router, which means static requests are free and unmetered and
+    // the single-page-application fallback actually applies — with a Worker as
+    // the catch-all it never fires, because the Worker is the catch-all.
+    "run_worker_first": ["/api/*"],
+    "binding": "ASSETS"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "climb-log",
-      // Replace with the id printed by `npm run db:create` before deploying.
-      "database_id": "REPLACE_ME_AFTER_db:create",
+      "database_id": "68f0ed1e-2805-4fcd-ad24-e18509a5ffa5",
       "migrations_dir": "migrations"
     }
   ]

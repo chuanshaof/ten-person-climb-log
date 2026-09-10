@@ -216,8 +216,10 @@ async function route(req: Request, env: Env): Promise<Response> {
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     if (!new URL(req.url).pathname.startsWith("/api/")) {
-      // Anything else is the SPA; the assets binding handles it.
-      return new Response("Not found", { status: 404 });
+      // `run_worker_first` should mean we never get here, but if the routing
+      // config ever changes, hand the request to the assets so a stray path
+      // still lands on the app rather than a bare 404.
+      return env.ASSETS.fetch(req);
     }
     try {
       return await route(req, env);

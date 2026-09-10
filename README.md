@@ -1,5 +1,7 @@
 # Climb Log
 
+**Live:** <https://climb-log.ten-person-climb-log.workers.dev>
+
 A ten-person bouldering tracker for a group that climbs across Singapore gyms
 with incompatible grading systems.
 
@@ -41,8 +43,10 @@ rank or renaming a member does not touch anyone's logged sends.
 
 ## Deploying to Cloudflare
 
+Already done once; these are the steps if you ever start from a clean account.
+
 ```sh
-npx wrangler login             # or: npm run wrangler -- login
+npm run wrangler -- login      # opens a browser to authorise
 npm run db:create              # prints a database_id
 # paste that id into wrangler.jsonc, then regenerate types
 npm run types
@@ -50,6 +54,24 @@ npm run db:migrate:remote
 npm run db:seed:remote
 npm run deploy
 ```
+
+To ship a change after that, `npm run deploy` on its own is enough. Only re-run
+the migrate/seed steps when the schema or the reference data changes.
+
+A brand-new `workers.dev` subdomain takes a minute or two to get its TLS
+certificate. Until it does, every request fails the handshake
+(`SSL_ALERT_HANDSHAKE_FAILURE`) rather than returning an HTTP error — that is
+normal on a first deploy and not worth debugging.
+
+### Routing
+
+`run_worker_first: ["/api/*"]` means only API paths invoke the Worker;
+everything else is served by the asset router. Two reasons: static requests are
+free and unmetered when they never reach the Worker, and the
+`single-page-application` fallback only fires if the Worker is *not* the
+catch-all. With a Worker catching everything, a stray path hits the Worker's own
+404 instead of the app. The Worker also holds an `ASSETS` binding so its
+non-API branch can serve the app if that config ever changes.
 
 `npm run deploy` builds first, then calls `wrangler deploy`. The Vite plugin
 writes its own `dist/climb_log/wrangler.json` at build time and Wrangler
