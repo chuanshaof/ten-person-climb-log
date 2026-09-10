@@ -49,11 +49,24 @@ export async function readJson(res: Response): Promise<{ status: number; body: a
   return { status: res.status, body: await res.json() };
 }
 
-/** Today's date as the Worker computes it, for tests that straddle "now". */
-export const todayUtc = () => new Date().toISOString().slice(0, 10);
+/**
+ * Today's date as the Worker computes it — Singapore, not UTC — for tests that
+ * straddle "now".
+ */
+export function todaySgt(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const at = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${at("year")}-${at("month")}-${at("day")}`;
+}
 
+/** `days` either side of today in Singapore. */
 export function offsetDay(days: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  const [y, m, d] = todaySgt().split("-").map(Number);
+  const shifted = new Date(Date.UTC(y, m - 1, d + days));
+  return shifted.toISOString().slice(0, 10);
 }

@@ -72,7 +72,24 @@ const gymLabel = (g: Gym) => {
   return c ? (g.branch ? `${c.name} · ${g.branch}` : c.name) : "?";
 };
 const systemOfChain = (c: Chain) => state.systems.find((s) => s.id === c.system_id);
-const today = () => new Date().toISOString().slice(0, 10);
+/**
+ * Today in Singapore, which is where the group climbs — not `toISOString()`,
+ * which is UTC and so is eight hours behind. It sets the date field's `max`,
+ * so if it disagreed with the server's own idea of today the picker would
+ * refuse a date the API accepts, or offer one the API rejects as "in the
+ * future". Same zone, same answer, both sides. Keep it in step with
+ * `localToday` in src/worker/index.ts.
+ */
+const today = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const at = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${at("year")}-${at("month")}-${at("day")}`;
+};
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "9 Sep" — unambiguous unlike 09/09, and identical in every locale. */

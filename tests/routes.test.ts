@@ -1,7 +1,7 @@
-import { test, describe } from "node:test";
+import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
 
-import { harness, readJson, offsetDay, todayUtc } from "./support/helpers.ts";
+import { harness, readJson, offsetDay, todaySgt } from "./support/helpers.ts";
 import { fixture } from "./support/fake-d1.ts";
 
 const validSend = () => ({
@@ -366,7 +366,7 @@ describe("POST /api/sends — validation", () => {
   });
 
   test("today is not the future", async () => {
-    const { status } = await bad({ sent_on: todayUtc() });
+    const { status } = await bad({ sent_on: todaySgt() });
     assert.equal(status, 201);
   });
 
@@ -377,6 +377,66 @@ describe("POST /api/sends — validation", () => {
     );
     assert.equal(status, 400);
     assert.equal(h.db.tables.sends.length, 2);
+  });
+});
+
+describe("the future is measured in Singapore, where the group climbs", () => {
+  const at = (instant: string, t: { after: (fn: () => void) => void }) => {
+    mock.timers.enable({ apis: ["Date"], now: new Date(instant) });
+    t.after(() => mock.timers.reset());
+  };
+
+  const log = async (sent_on: string) =>
+    readJson(
+      await harness().call("/api/sends", {
+        method: "POST",
+        as: 1,
+        body: JSON.stringify({ gym_id: 100, grade_id: 200, sent_on }),
+      }),
+    );
+
+  test("a session that ran past midnight can be logged on the date it ended", async (t) => {
+    // 00:05 on the 11th in Singapore. UTC still says the 10th.
+    at("2026-09-10T16:05:00Z", t);
+    assert.equal(new Date().toISOString().slice(0, 10), "2026-09-10");
+
+    const { status } = await log("2026-09-11");
+    assert.equal(status, 201);
+  });
+
+  test("the day after today in Singapore is still the future", async (t) => {
+    at("2026-09-10T16:05:00Z", t);
+    const { status, body } = await log("2026-09-12");
+    assert.equal(status, 400);
+    assert.equal(body.error, "You can't log a send in the future.");
+  });
+
+  test("the boundary is midnight in Singapore, not midnight UTC", async (t) => {
+    // 23:59 on the 10th in Singapore — one minute before the day turns there.
+    at("2026-09-10T15:59:00Z", t);
+    assert.equal((await log("2026-09-10")).status, 201);
+    assert.equal((await log("2026-09-11")).status, 400);
+  });
+
+  test("midday, when UTC and Singapore agree, is unchanged", async (t) => {
+    at("2026-09-10T04:00:00Z", t);
+    assert.equal((await log("2026-09-10")).status, 201);
+    assert.equal((await log("2026-09-09")).status, 201);
+    assert.equal((await log("2026-09-11")).status, 400);
+  });
+
+  test("PATCH measures the future the same way", async (t) => {
+    at("2026-09-10T16:05:00Z", t);
+    const h = harness();
+    const { status } = await readJson(
+      await h.call("/api/sends/900", {
+        method: "PATCH",
+        as: 1,
+        body: JSON.stringify({ gym_id: 100, grade_id: 200, sent_on: "2026-09-11" }),
+      }),
+    );
+    assert.equal(status, 200);
+    assert.equal(h.db.tables.sends.find((x) => x.id === 900)!.sent_on, "2026-09-11");
   });
 });
 

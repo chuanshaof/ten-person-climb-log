@@ -98,11 +98,35 @@ function intField(src: Record<string, unknown>, key: string): number {
 }
 
 /**
+ * Today's date on the wall clock the group climbs by. This has to be Singapore
+ * and not UTC: SGT is UTC+8 all year, so for the eight hours after midnight the
+ * UTC date is still yesterday, and "today" would mean two different days
+ * depending on what time you got round to logging.
+ *
+ * The zone is named rather than added as `+8h` so it stays right if Singapore
+ * ever moves it again (it has, twice — 1941 and 1982).
+ */
+const CLIMB_TZ = "Asia/Singapore";
+
+function localToday(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLIMB_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const at = (type: string) => parts.find((part) => part.type === type)!.value;
+  return `${at("year")}-${at("month")}-${at("day")}`;
+}
+
+/**
  * A calendar date, `YYYY-MM-DD`. The shape check alone would wave through
  * `2026-99-99` and `2026-02-31`, so we round-trip through `Date` — the
  * comparison is what catches the 31st of February, which `Date` would
  * otherwise roll forward to 2 March. Future dates are rejected too: you
- * can't have sent a climb you haven't climbed yet.
+ * can't have sent a climb you haven't climbed yet — but "future" is measured
+ * against `localToday()`, because a session that runs past midnight is
+ * logged on a date UTC has not reached yet.
  */
 function dateField(src: Record<string, unknown>, key: string): string {
   const v = String(src[key] ?? "");
@@ -111,7 +135,7 @@ function dateField(src: Record<string, unknown>, key: string): string {
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) {
     throw new HttpError(400, `"${key}" isn't a real date.`);
   }
-  if (v > new Date().toISOString().slice(0, 10)) {
+  if (v > localToday()) {
     throw new HttpError(400, "You can't log a send in the future.");
   }
   return v;
