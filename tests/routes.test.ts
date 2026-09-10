@@ -555,10 +555,45 @@ describe("PATCH /api/sends/:id", () => {
 
 describe("/api/sends/:id — other methods", () => {
   test("a method with no handler falls through to 404", async () => {
-    for (const method of ["GET", "PUT"]) {
+    for (const method of ["GET", "PUT", "HEAD", "OPTIONS"]) {
       const { status } = await readJson(await harness().call("/api/sends/900", { method, as: 1 }));
       assert.equal(status, 404, `${method} did not 404`);
     }
+  });
+
+  test("a method with no handler does not answer with the ownership rule", async () => {
+    // 901 belongs to member 2. A GET is a read, and everyone reads everything —
+    // it must not come back as "that's someone else's send".
+    for (const method of ["GET", "PUT"]) {
+      const { status, body } = await readJson(
+        await harness().call("/api/sends/901", { method, as: 1 }),
+      );
+      assert.equal(status, 404, `${method} leaked ownership as ${status}`);
+      assert.equal(body.error, "No such endpoint.");
+    }
+  });
+
+  test("a method with no handler does not demand identity either", async () => {
+    for (const method of ["GET", "PUT"]) {
+      const { status, body } = await readJson(
+        await harness().call("/api/sends/900", { method }),
+      );
+      assert.equal(status, 404, `${method} answered ${status} to an anonymous caller`);
+      assert.equal(body.error, "No such endpoint.");
+    }
+  });
+
+  test("a method with no handler queries nothing at all", async () => {
+    const h = harness();
+    await h.call("/api/sends/901", { method: "GET", as: 1 });
+    assert.deepEqual(h.db.log, []);
+  });
+
+  test("the same id answers 404 to a GET whether it exists or not", async () => {
+    const h = harness();
+    const real = await readJson(await h.call("/api/sends/900", { method: "GET", as: 1 }));
+    const fake = await readJson(await h.call("/api/sends/99", { method: "GET", as: 1 }));
+    assert.deepEqual(real, fake);
   });
 
   test("a non-numeric id is not a send path at all", async () => {

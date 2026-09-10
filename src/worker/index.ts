@@ -233,8 +233,14 @@ async function route(req: Request, env: Env): Promise<Response> {
     return json({ id: row!.id }, { status: 201 });
   }
 
+  // The method is part of the match, not something checked after the fact. Doing
+  // identity and ownership first meant a method with no handler here — a GET, a
+  // PUT — was answered by the *ownership* rule: 403 "that's someone else's send"
+  // for a read, on a board where everyone reads everything, and 401 "pick who
+  // you are first" for a caller with no cookie. Both told the caller about a
+  // route that does not exist, and one of them leaked who owns a send.
   const one = path.match(/^\/api\/sends\/(\d+)$/);
-  if (one) {
+  if (one && (method === "DELETE" || method === "PATCH")) {
     const id = Number(one[1]);
     const me = await requireMe(req, env);
     await assertOwner(env, id, me);
@@ -244,18 +250,16 @@ async function route(req: Request, env: Env): Promise<Response> {
       return json({ deleted: id });
     }
 
-    if (method === "PATCH") {
-      const b = await body(req);
-      const gymId = intField(b, "gym_id");
-      const gradeId = intField(b, "grade_id");
-      await assertGradeFitsGym(env, gymId, gradeId);
-      await env.DB.prepare(
-        "UPDATE sends SET gym_id = ?, grade_id = ?, sent_on = ?, note = ? WHERE id = ?",
-      )
-        .bind(gymId, gradeId, dateField(b, "sent_on"), noteField(b), id)
-        .run();
-      return json({ updated: id });
-    }
+    const b = await body(req);
+    const gymId = intField(b, "gym_id");
+    const gradeId = intField(b, "grade_id");
+    await assertGradeFitsGym(env, gymId, gradeId);
+    await env.DB.prepare(
+      "UPDATE sends SET gym_id = ?, grade_id = ?, sent_on = ?, note = ? WHERE id = ?",
+    )
+      .bind(gymId, gradeId, dateField(b, "sent_on"), noteField(b), id)
+      .run();
+    return json({ updated: id });
   }
 
   throw new HttpError(404, "No such endpoint.");
